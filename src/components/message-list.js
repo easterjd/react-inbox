@@ -1,9 +1,13 @@
 import React from 'react';
 import Message from './message.js'
+import Body from './Body.js'
 
-const MessageList = ({ messages, starChange, select, readMessage }) => {
-  const allMessages = messages.map(mess => {
-    return (<Message key={mess.id} message={mess} starChange={starChange} select={select} readMessage={readMessage}/>)
+const MessageList = ({ messages, starChange, select, readMessage, selected }) => {
+  const allMessages = messages.map((mess, i) => {
+    return (<div key={mess.id}>
+              <Message key={i} message={mess} starChange={starChange} select={select} readMessage={readMessage}/>
+              {mess.id === selected ? <Body key={mess.id} message={mess} selected={selected} /> : ''}
+            </div>)
   })
   return (
     allMessages

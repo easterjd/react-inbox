@@ -20,7 +20,7 @@ const Message = ({message, starChange, select, readMessage}) => {
         {message.labels.map((label, i) => {
           return (<span key={i} className="label label-warning">{label}</span>)
         })}
-        <a href="">
+        <a onClick={(e) => e.preventDefault()} href="">
           {message.subject}
         </a>
       </div>

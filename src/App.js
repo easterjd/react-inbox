@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import Toolbar from './components/toolbar.js'
+import Compose from './components/Compose.js'
 import MessageList from './components/message-list.js'
+import Axios from 'axios';
 import './App.css';
 
 class App extends Component {
@@ -66,21 +68,36 @@ class App extends Component {
           "starred": true,
           "labels": []
         }
-      ]
+      ],
+      selected: null,
+      compose: false
     }
   }
 
-  starChange = (id) => {
-    const newMessages = this.state.messages.map(mess => {
-      if (mess.id === id) {
-        mess.starred = !mess.starred
+  async componentDidMount() {
+    this.getMessages()
+  }
+
+  async getMessages () {
+    const selected = this.state.messages.filter(mess => mess.selected === true).map(mess => mess.id)
+    const response = await Axios.get('http://localhost:8082/api/messages')
+    const newMessages = response.data.map(mess => {
+      if (selected.includes(mess.id)) {
+        mess.selected = true
+      } else {
+        mess.selected = false
       }
       return mess
     })
-    this.setState({messages: newMessages})
+    this.setState({messages: newMessages, selected: this.state.selected, compose: false})
   }
 
-  select = (id) => {
+  starChange = async (id) => {
+    const response = await Axios.patch('http://localhost:8082/api/messages', {messageIds: [id], command: 'star'})
+    if (response) this.getMessages()
+  }
+
+  select = async (id) => {
     const newMessages = this.state.messages.map(mess => {
       if (mess.id === id) {
         if (!mess.selected) mess.selected = true
@@ -88,7 +105,7 @@ class App extends Component {
       }
       return mess
     })
-    this.setState({messages: newMessages})
+    this.setState({messages: newMessages, selected: this.state.selected, compose: false})
   }
 
   selectAll = () => {
@@ -100,69 +117,69 @@ class App extends Component {
       else mess.selected = allMess ? false : true
       return mess
     })
-    this.setState({messages: newMessages})
+    this.setState({messages: newMessages, selected: this.state.selected, compose: false})
   }
 
-  readMessage = (id) => {
-    const newMessages = this.state.messages.map(mess => {
-      if (mess.id === id) {
-        mess.read = true
-      }
-      return mess
-    })
-    this.setState({messages: newMessages})
+  readMessage = async (id) => {
+    const response = await Axios.patch('http://localhost:8082/api/messages', {messageIds: [id], command: 'read', read: true})
+    if (response) this.getMessages()
+    const newSelect = id === this.state.selected ? null : id
+    this.setState({messages: this.state.messages, selected: newSelect, compose: this.state.compose})
   }
 
-  readBatch = () => {
-    const newMessages = this.state.messages.map(mess => {
-      if (mess.selected) mess.read = true
-      return mess
-    })
-    this.setState({messages:newMessages})
+  readBatch = async () => {
+    const ids = this.state.messages.filter(mess => mess.selected === true).map(mess => mess.id)
+    const response = await Axios.patch('http://localhost:8082/api/messages', {messageIds: [...ids], command: 'read', read: true})
+    if (response) this.getMessages()
   }
 
-  unReadBatch = () => {
-    const newMessages = this.state.messages.map(mess => {
-      if (mess.selected) mess.read = false
-      return mess
-    })
-    this.setState({messages:newMessages})
+  unReadBatch = async () => {
+    const ids = this.state.messages.filter(mess => mess.selected === true).map(mess => mess.id)
+    const response = await Axios.patch('http://localhost:8082/api/messages', {messageIds: [...ids], command: 'read', read: false})
+    if (response) this.getMessages()
   }
 
-  applyLabel = (e) => {
-    const newMessages = this.state.messages.map(mess => {
-      if (mess.selected) {
-        if (!mess.labels.includes(e.target.value)) mess.labels.push(e.target.value)
-      }
-      return mess
-    })
-    this.setState({messages:newMessages})
+  applyLabel = async (e) => {
+    const ids = this.state.messages.filter(mess => mess.selected === true).map(mess => mess.id)
+    const response = await Axios.patch('http://localhost:8082/api/messages', {messageIds: [...ids], command: 'addLabel', label: e.target.value})
+    if (response) this.getMessages()
   }
 
-  removeLabel = (e) => {
-    const newMessages = this.state.messages.map(mess => {
-      if (mess.selected) {
-        if (mess.labels.includes(e.target.value)) {
-          const index = mess.labels.indexOf(e.target.value)
-          mess.labels.splice(index, 1)
-          return mess
-        }
-      }
-      return mess
-    })
-    this.setState({messages:newMessages})
+  removeLabel = async (e) => {
+    const ids = this.state.messages.filter(mess => mess.selected === true).map(mess => mess.id)
+    const response = await Axios.patch('http://localhost:8082/api/messages', {messageIds: [...ids], command: 'removeLabel', label: e.target.value})
+    if (response) this.getMessages()
   }
 
-  deleteMessage = () => {
-    const newMessages = this.state.messages.filter(mess => !mess.selected)
-    this.setState({messages: newMessages})
+  deleteMessage = async () => {
+    const ids = this.state.messages.filter(mess => mess.selected === true).map(mess => mess.id)
+    const response = await Axios.patch('http://localhost:8082/api/messages', {messageIds: [...ids], command: 'delete'})
+    if (response) this.getMessages()
+  }
+
+  toggleCompose = () => {
+    this.setState({messages: this.state.messages, selected: this.state.selected, compose: !this.state.compose})
+  }
+
+  sendMessage = async ({subject, body}) => {
+    let response = await Axios.post('http://localhost:8082/api/messages', {subject, body})
+    console.log(response)
+    if (response) {
+      this.setState({
+        messages: [...this.state.messages, response.data],
+        selected: this.state.selected,
+        compsoe: this.state.compose
+      })
+    }
+    this.toggleCompose()
   }
 
   render() {
     return (
       <div className="container">
-        <Toolbar messages={this.state.messages} selectAll={this.selectAll} readBatch={this.readBatch} unReadBatch={this.unReadBatch} applyLabel={this.applyLabel} removeLabel={this.removeLabel} deleteMessage={this.deleteMessage}/>
-        <MessageList messages={this.state.messages} starChange={this.starChange} select={this.select} readMessage={this.readMessage}/>
+        <Toolbar messages={this.state.messages} selectAll={this.selectAll} readBatch={this.readBatch} unReadBatch={this.unReadBatch} applyLabel={this.applyLabel} removeLabel={this.removeLabel} deleteMessage={this.deleteMessage} toggleCompose={this.toggleCompose}/>
+        {this.state.compose ? <Compose send={this.sendMessage} /> : ''}
+        <MessageList messages={this.state.messages} starChange={this.starChange} select={this.select} readMessage={this.readMessage} selected={this.state.selected}/>
       </div>
     );
   }
